@@ -21,7 +21,7 @@ Datadog ──alert──▶ Slack channel ◀──Socket Mode── this agent
                                                      │
                                                      ├─ aws eks update-kubeconfig (EC2 instance role)
                                                      ├─ kubectl describe/logs/get events   (read-only)
-                                                     ├─ git clone + branch (repo from config/repo-map.yaml)
+                                                     ├─ git clone + branch (repo = f"{GITHUB_ORG}/{namespace}")
                                                      ├─ claude -p  (root cause + fix-or-suggest)
                                                      ├─ PyGithub PR creation (DevOps files only)
                                                      └─ Slack thread reply (status / PR link / suggestion)
@@ -35,12 +35,18 @@ to EKS (IAM role -> IMDSv2 -> STS -> `aws eks get-token`, read-only RBAC).
 1. **Slack app** - Socket Mode enabled, bot token + app-level token, invited
    into the incident channel. Scopes: `channels:history`, `chat:write` (add
    `groups:history` too if the channel is private).
-2. **GitHub token** - a fine-grained PAT scoped to just the repos in
-   `config/repo-map.yaml`, with Contents and Pull requests read/write.
-3. **`config/repo-map.yaml`** - map each cluster/namespace to the GitHub repo
-   that owns its deployment config, and the file globs the agent may
-   auto-fix (`fix_paths`). Anything outside `fix_paths` is never touched -
-   enforced in code (`src/github/path_guard.py`), not just by prompting.
+2. **GitHub token + org** - a fine-grained PAT with Contents and Pull requests
+   read/write, plus `GITHUB_ORG` in `.env`. The repo for an incident is
+   computed as `f"{GITHUB_ORG}/{namespace}"` - cluster/namespace come
+   dynamically from the Slack message itself (`src/github/repo_map.py`), so
+   there's no static mapping table to maintain. This assumes your k8s
+   namespace names match your GitHub repo names exactly - if that's not
+   true for you, this is the one function to change.
+3. **`config/fix-paths.yaml`** - a single, repo-agnostic list of glob patterns
+   the agent may auto-fix (Dockerfile, k8s manifests/Helm, Terraform, CI
+   workflows, wherever they live in a repo). Anything outside it is never
+   touched, enforced in code (`src/github/path_guard.py`), not just by
+   prompting.
 4. **AWS/EKS** - IAM instance role + EKS access entry per `deploy/eks-access-entry.md`.
 5. **`.env`** - copy `.env.example` to `.env` and fill in the above.
 
@@ -70,7 +76,7 @@ journalctl -u anomaly-agent -f   # or tail /var/log/anomaly-agent/agent.log
   apply`/`edit`. Fixes flow through a PR and your existing GitHub Actions
   deploy pipeline.
 - PRs are never auto-merged.
-- File changes outside a repo's `fix_paths` allow-list are hard-reverted
+- File changes outside `config/fix-paths.yaml`'s allow-list are hard-reverted
   before commit (`src/github/path_guard.py`), even if the model attempted them.
 - A per-incident cooldown (`INCIDENT_COOLDOWN_MINUTES`, default 30) prevents
   duplicate PRs from flapping alerts.

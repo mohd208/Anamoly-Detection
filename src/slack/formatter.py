@@ -19,13 +19,6 @@ def unresolved_incident_message() -> str:
     return ":warning: Couldn't confidently determine the cluster/namespace/workload for this alert - needs manual triage."
 
 
-def no_mapping_message(incident: Incident) -> str:
-    return (
-        f":warning: No repo mapping configured for cluster `{incident.cluster}` / namespace "
-        f"`{incident.namespace}` in `config/repo-map.yaml` - skipping auto-fix."
-    )
-
-
 def pr_opened_message(incident: Incident, pr_url: str, root_cause: str, summary: str) -> str:
     return (
         f":white_check_mark: Root cause found for *{incident.alert_type}* on "

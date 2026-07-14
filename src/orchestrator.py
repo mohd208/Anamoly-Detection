@@ -8,7 +8,7 @@ from src.claude.runner import run_claude_json
 from src.github import pr as pr_module
 from src.github.git_ops import checkout_fresh_branch, commit_and_push
 from src.github.path_guard import enforce_path_allow_list
-from src.github.repo_map import load_repo_map, resolve_mapping
+from src.github.repo_map import load_fix_paths, resolve_mapping
 from src.incident.dedupe import IncidentDedupe
 from src.incident.types import Incident
 from src.k8s.diagnostics import gather_diagnostics
@@ -33,13 +33,10 @@ def handle_incident(incident: Incident, reply: Callable[[str], None]) -> None:
 
     reply(fmt.investigating_message(incident))
 
-    mappings = load_repo_map(config.REPO_MAP_PATH)
-    mapping = resolve_mapping(mappings, incident)
-    if not mapping:
-        reply(fmt.no_mapping_message(incident))
-        return
+    mapping = resolve_mapping(incident)
 
     try:
+        fix_paths = load_fix_paths(config.FIX_PATHS_PATH)
         kubeconfig_path = ensure_kubeconfig(incident.cluster, mapping.region, config.WORKDIR)
         diagnostics = gather_diagnostics(incident, kubeconfig_path)
 
@@ -55,7 +52,7 @@ def handle_incident(incident: Incident, reply: Callable[[str], None]) -> None:
         checkout = checkout_fresh_branch(mapping.repo, config.WORKDIR, branch, config.GITHUB_TOKEN)
 
         analysis = run_claude_json(
-            analysis_prompt(incident, diagnostics, mapping.fix_paths),
+            analysis_prompt(incident, diagnostics, fix_paths),
             cwd=str(checkout.dir),
             add_dirs=[str(checkout.dir)],
         )
@@ -75,7 +72,7 @@ def handle_incident(incident: Incident, reply: Callable[[str], None]) -> None:
             dedupe.mark_handled(incident)
             return
 
-        guard_result = enforce_path_allow_list(checkout.dir, mapping.fix_paths)
+        guard_result = enforce_path_allow_list(checkout.dir, fix_paths)
 
         if not guard_result.allowed:
             reply(

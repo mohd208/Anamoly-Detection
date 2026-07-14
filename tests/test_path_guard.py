@@ -3,7 +3,7 @@ from unittest.mock import patch
 
 from src.github.path_guard import enforce_path_allow_list
 
-FIX_PATHS = ["Dockerfile", "k8s/**", "terraform/**"]
+FIX_PATHS = ["**/Dockerfile*", "**/*.tf", "**/k8s/**", ".github/workflows/**"]
 
 
 def test_allows_files_matching_fix_paths_and_does_not_revert_them():
@@ -13,6 +13,16 @@ def test_allows_files_matching_fix_paths_and_does_not_revert_them():
 
         assert result.allowed == ["Dockerfile", "k8s/deployment.yaml"]
         assert result.reverted == []
+        mock_discard.assert_not_called()
+
+
+def test_allows_nested_devops_files_via_recursive_glob():
+    files = ["services/api/Dockerfile", "infra/main.tf", "charts/api/k8s/deployment.yaml"]
+    with patch("src.github.path_guard.changed_files", return_value=files), \
+         patch("src.github.path_guard.discard_file") as mock_discard:
+        result = enforce_path_allow_list(Path("/tmp/repo"), FIX_PATHS)
+
+        assert result.allowed == files
         mock_discard.assert_not_called()
 
 

@@ -12,7 +12,16 @@ class GuardResult:
 
 
 def _is_allowed(file: str, fix_paths: list[str]) -> bool:
-    return any(fnmatch(file, pattern) for pattern in fix_paths)
+    for pattern in fix_paths:
+        if fnmatch(file, pattern):
+            return True
+        # fnmatch treats "/" as a literal character, so "**/Dockerfile*" would
+        # otherwise only match nested paths (e.g. "backend/Dockerfile") and
+        # miss a bare top-level "Dockerfile". Also try the pattern with its
+        # leading recursive-directory prefix stripped.
+        if pattern.startswith("**/") and fnmatch(file, pattern[len("**/"):]):
+            return True
+    return False
 
 
 def enforce_path_allow_list(repo_dir: Path, fix_paths: list[str]) -> GuardResult:

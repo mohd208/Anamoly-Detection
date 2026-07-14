@@ -1,0 +1,15 @@
+# Generic DevOps file patterns the agent is allowed to auto-fix, wherever
+# they live in a repo (Dockerfile, Kubernetes manifests/Helm, Terraform, CI
+# workflows). These apply the same way across every repo. Anything else the
+# model changes gets reverted before commit - see src/github/path_guard.py.
+fix_paths:
+  - "**/Dockerfile*"
+  - "**/*.tf"
+  - "**/*.tfvars"
+  - "**/k8s/**"
+  - "**/kubernetes/**"
+  - "**/helm/**"
+  - "**/charts/**"
+  - "**/manifests/**"
+  - "**/deploy/**"
+  - ".github/workflows/**"
