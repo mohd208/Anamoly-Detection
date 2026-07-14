@@ -35,3 +35,8 @@ STATE_DIR = Path(os.environ.get("STATE_DIR", ROOT_DIR / "state"))
 FIX_PATHS_PATH = Path(os.environ.get("FIX_PATHS_PATH", ROOT_DIR / "config" / "fix-paths.yaml"))
 
 INCIDENT_COOLDOWN_MINUTES = int(os.environ.get("INCIDENT_COOLDOWN_MINUTES", "30"))
+
+# Port for the FastAPI/uvicorn health endpoint - the Slack Socket Mode
+# listener itself makes no inbound connections, this is just for uniform
+# process management alongside your other FastAPI-based agents.
+PORT = int(os.environ.get("PORT", "8000"))

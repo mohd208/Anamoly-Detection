@@ -10,9 +10,9 @@ find the root cause:
 - If the fix requires application source code changes, it does **not** touch
   code - it posts a suggested fix back to the same Slack thread instead.
 
-Runs as a single long-lived Python process on an EC2 host that already has an
-authenticated `claude` CLI session (no Anthropic API key needed - it rides
-the existing CLI login).
+Runs on an EC2 host that already has an authenticated `claude` CLI session
+(no Anthropic API key needed - it rides the existing CLI login), served via
+FastAPI/uvicorn for the same operational shape as your other agents.
 
 ## How it fits together
 
@@ -26,6 +26,12 @@ Datadog ──alert──▶ Slack channel ◀──Socket Mode── this agent
                                                      ├─ PyGithub PR creation (DevOps files only)
                                                      └─ Slack thread reply (status / PR link / suggestion)
 ```
+
+Slack Socket Mode makes an *outbound* connection to Slack - it doesn't accept
+inbound HTTP itself. `src/main.py` wraps it in a tiny FastAPI app: on startup
+it launches the Socket Mode listener on a background thread, and exposes
+`GET /health` so it can be run/monitored via uvicorn like your other
+FastAPI-based agents.
 
 See `deploy/eks-access-entry.md` for exactly how the EC2 instance authenticates
 to EKS (IAM role -> IMDSv2 -> STS -> `aws eks get-token`, read-only RBAC).
@@ -57,8 +63,10 @@ python3 -m venv .venv
 source .venv/bin/activate        # .venv\Scripts\activate on Windows
 pip install -r requirements.txt
 cp .env.example .env             # fill in values
-python -m src.main
+uvicorn src.main:app --reload --port 8000
 ```
+
+`curl localhost:8000/health` should return `{"status": "ok", "slack_listener_alive": true}`.
 
 ## Run on EC2
 
@@ -68,7 +76,11 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 sudo cp deploy/anomaly-agent.service /etc/systemd/system/
 sudo systemctl daemon-reload && sudo systemctl enable --now anomaly-agent
 journalctl -u anomaly-agent -f   # or tail /var/log/anomaly-agent/agent.log
+curl localhost:8000/health
 ```
+
+The systemd unit runs `uvicorn src.main:app --host 0.0.0.0 --port 8000` - same
+entry point as local dev, just without `--reload`.
 
 ## Safety notes
 
