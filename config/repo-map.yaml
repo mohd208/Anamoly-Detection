@@ -1,0 +1,19 @@
+# Maps an incident's cluster/namespace to the GitHub repo that owns its
+# deployment config, and to the file globs the agent is allowed to auto-fix.
+#
+# "*" matches anything. First mapping (top to bottom) that matches wins.
+# fix_paths - the ONLY files the agent may edit and commit automatically
+# (Dockerfile, k8s manifests, Helm, Terraform, CI workflow files). Anything
+# else it changes gets reverted before commit - see src/github/path_guard.py.
+
+mappings:
+  - cluster: "*"
+    namespace: "payments-service"
+    repo: "your-org/payments-service"
+    region: "us-east-1"
+    fix_paths:
+      - "Dockerfile"
+      - "k8s/**"
+      - "helm/**"
+      - "terraform/**"
+      - ".github/workflows/**"

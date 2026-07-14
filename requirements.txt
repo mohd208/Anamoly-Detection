@@ -1,0 +1,4 @@
+slack-bolt>=1.19
+PyGithub>=2.3
+PyYAML>=6.0
+python-dotenv>=1.0

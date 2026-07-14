@@ -1,0 +1,23 @@
+[Unit]
+Description=Anomaly detection & auto-fix agent (Slack -> EKS -> GitHub PR)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=anomaly-agent
+WorkingDirectory=/opt/anomaly-agent
+EnvironmentFile=/opt/anomaly-agent/.env
+ExecStart=/opt/anomaly-agent/.venv/bin/python -m src.main
+Restart=on-failure
+RestartSec=5
+StandardOutput=append:/var/log/anomaly-agent/agent.log
+StandardError=append:/var/log/anomaly-agent/agent.log
+
+# Hardening (adjust if your setup needs broader access, e.g. /tmp for kubeconfig
+# generation if WORKDIR isn't under /opt/anomaly-agent).
+NoNewPrivileges=true
+ProtectSystem=full
+
+[Install]
+WantedBy=multi-user.target
