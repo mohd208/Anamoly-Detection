@@ -8,6 +8,11 @@ from slack_bolt.adapter.socket_mode import SocketModeHandler
 from src import config
 from src.slack.listener import create_slack_app
 
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(name)s: %(message)s",
+)
+
 logger = logging.getLogger("anomaly-agent")
 
 
