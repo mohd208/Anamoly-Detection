@@ -14,10 +14,13 @@ class RepoMapping:
 
 
 def resolve_mapping(incident: Incident) -> RepoMapping:
-    """cluster/namespace come dynamically from the Slack incident itself, so
-    the repo is computed directly rather than looked up in a static table -
-    this assumes namespace names match GitHub repo names exactly."""
-    return RepoMapping(repo=f"{config.GITHUB_ORG}/{incident.namespace}", region=config.AWS_REGION)
+    """cluster/namespace come dynamically from the Slack incident itself. If
+    GITHUB_REPO is set, every incident is pinned to that one repo (useful for
+    testing / single-repo setups). Otherwise the repo is computed directly as
+    f"{GITHUB_ORG}/{namespace}" - this assumes namespace names match GitHub
+    repo names exactly."""
+    repo = config.GITHUB_REPO or f"{config.GITHUB_ORG}/{incident.namespace}"
+    return RepoMapping(repo=repo, region=config.AWS_REGION)
 
 
 def load_fix_paths(file_path: Path) -> list[str]:

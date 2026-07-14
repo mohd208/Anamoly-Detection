@@ -47,7 +47,9 @@ to EKS (IAM role -> IMDSv2 -> STS -> `aws eks get-token`, read-only RBAC).
    dynamically from the Slack message itself (`src/github/repo_map.py`), so
    there's no static mapping table to maintain. This assumes your k8s
    namespace names match your GitHub repo names exactly - if that's not
-   true for you, this is the one function to change.
+   true for you, this is the one function to change. Set the optional
+   `GITHUB_REPO` env var to pin every incident to one fixed repo instead
+   (useful for testing, or if you only have a single repo today).
 3. **`config/fix-paths.yaml`** - a single, repo-agnostic list of glob patterns
    the agent may auto-fix (Dockerfile, k8s manifests/Helm, Terraform, CI
    workflows, wherever they live in a repo). Anything outside it is never

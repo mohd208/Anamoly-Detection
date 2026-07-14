@@ -20,9 +20,12 @@ SLACK_APP_TOKEN = _required("SLACK_APP_TOKEN")
 SLACK_INCIDENT_CHANNEL_ID = _required("SLACK_INCIDENT_CHANNEL_ID")
 
 GITHUB_TOKEN = _required("GITHUB_TOKEN")
-# The repo for a given incident is computed as f"{GITHUB_ORG}/{namespace}" -
-# this assumes namespace names match repo names exactly (confirmed).
+# The repo for a given incident is normally computed as f"{GITHUB_ORG}/{namespace}"
+# (namespace names are assumed to match repo names exactly). If GITHUB_REPO is
+# set instead, every incident goes to that one fixed repo regardless of
+# namespace - useful for testing, or if you only have a single repo today.
 GITHUB_ORG = _required("GITHUB_ORG")
+GITHUB_REPO = os.environ.get("GITHUB_REPO")
 
 # All EKS clusters are assumed to live in this region. If that's ever not
 # true, this is the one place to extend into a per-cluster lookup.
