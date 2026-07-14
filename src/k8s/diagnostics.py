@@ -1,4 +1,3 @@
-import subprocess
 from pathlib import Path
 from typing import Optional
 
@@ -9,8 +8,8 @@ from src.k8s.eks import kubectl
 def _safe_kubectl(kubeconfig_path: Path, args: list[str]) -> str:
     try:
         return kubectl(kubeconfig_path, args)
-    except subprocess.CalledProcessError as err:
-        return f"<error running kubectl {' '.join(args)}: {err.stderr}>"
+    except RuntimeError as err:
+        return f"<error running kubectl {' '.join(args)}: {err}>"
 
 
 def _resolve_pod_name(kubeconfig_path: Path, namespace: str, workload: str) -> Optional[str]:

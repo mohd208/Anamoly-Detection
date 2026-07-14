@@ -91,7 +91,7 @@ aws eks update-kubeconfig --name <CLUSTER_NAME> --region <REGION> --kubeconfig /
 kubectl --kubeconfig /tmp/test-kubeconfig get pods -n <SOME_NAMESPACE>
 ```
 
-If this returns pods without error, the agent's `ensureKubeconfig`/`kubectl`
-helpers (`src/k8s/eks.ts`) will work identically at runtime.
+If this returns pods without error, the agent's `ensure_kubeconfig`/`kubectl`
+helpers (`src/k8s/eks.py`) will work identically at runtime.
 
-Repeat step 2 for every EKS cluster referenced in `config/repo-map.yaml`.
+Repeat step 2 for every EKS cluster the agent needs to reach.
