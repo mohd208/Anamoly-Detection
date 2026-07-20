@@ -37,29 +37,29 @@ aws ec2 associate-iam-instance-profile \
   --iam-instance-profile Name=anomaly-agent-eks-readonly
 ```
 
-## 2. Grant that role RBAC view access on each target EKS cluster
+## 2. Per-cluster EKS access - now automatic, nothing to do here
 
-Get the role ARN first:
-```bash
-ROLE_ARN=$(aws iam get-role --role-name anomaly-agent-eks-readonly --query 'Role.Arn' --output text)
-```
+AWS IAM permissions (even `AdministratorAccess`) only cover the *AWS API*
+side (`eks:DescribeCluster` etc). EKS keeps a separate, per-cluster
+Kubernetes-RBAC layer (access entries) that IAM admin does **not**
+automatically grant - that's a deliberate AWS security boundary, not a bug.
 
-### If the cluster uses EKS access entries (current default, clusters created/updated recently)
-```bash
-aws eks create-access-entry \
-  --cluster-name <CLUSTER_NAME> \
-  --principal-arn "$ROLE_ARN" \
-  --type STANDARD
+`src/k8s/eks.py`'s `ensure_kubeconfig()` now calls `ensure_cluster_access()`
+first, which self-grants this instance's IAM role a read-only access entry
+(`AmazonEKSViewPolicy`) on whatever cluster the incident names, the first
+time it's needed. It's idempotent (safe to call every time - a benign
+`ResourceInUseException` on repeat calls is treated as success), so there is
+**no manual step and no script to run per cluster** - any new cluster the
+agent is ever pointed at gets access automatically on first use.
 
-aws eks associate-access-policy \
-  --cluster-name <CLUSTER_NAME> \
-  --principal-arn "$ROLE_ARN" \
-  --policy-arn arn:aws:eks::aws:cluster-access-policy/AmazonEKSViewPolicy \
-  --access-scope type=cluster
-```
+This requires the instance role to have `eks:CreateAccessEntry` and
+`eks:AssociateAccessPolicy` (included in `deploy/iam-policy.json`) - already
+covered if the role has `AdministratorAccess`.
 
-### If the cluster still uses the legacy `aws-auth` ConfigMap
-Add a `mapRoles` entry bound to the built-in `view` ClusterRole:
+If your clusters still use the legacy `aws-auth` ConfigMap instead of access
+entries, self-granting isn't possible via the AWS API (it requires a
+`kubectl edit` on the ConfigMap itself, which needs pre-existing cluster
+access - a chicken-and-egg problem). Add a `mapRoles` entry once, manually:
 ```yaml
 # kubectl edit configmap aws-auth -n kube-system
 mapRoles: |
@@ -92,6 +92,6 @@ kubectl --kubeconfig /tmp/test-kubeconfig get pods -n <SOME_NAMESPACE>
 ```
 
 If this returns pods without error, the agent's `ensure_kubeconfig`/`kubectl`
-helpers (`src/k8s/eks.py`) will work identically at runtime.
-
-Repeat step 2 for every EKS cluster the agent needs to reach.
+helpers (`src/k8s/eks.py`) will work identically at runtime - including
+against any cluster you haven't tested yet, since access is granted
+on-demand.

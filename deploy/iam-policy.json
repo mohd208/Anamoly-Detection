@@ -11,6 +11,15 @@
       "Resource": "*"
     },
     {
+      "Sid": "EksSelfGrantAccessEntry",
+      "Effect": "Allow",
+      "Action": [
+        "eks:CreateAccessEntry",
+        "eks:AssociateAccessPolicy"
+      ],
+      "Resource": "*"
+    },
+    {
       "Sid": "OptionalSecretsRead",
       "Effect": "Allow",
       "Action": [
