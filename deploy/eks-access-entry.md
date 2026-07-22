@@ -44,7 +44,7 @@ side (`eks:DescribeCluster` etc). EKS keeps a separate, per-cluster
 Kubernetes-RBAC layer (access entries) that IAM admin does **not**
 automatically grant - that's a deliberate AWS security boundary, not a bug.
 
-`src/k8s/eks.py`'s `ensure_kubeconfig()` now calls `ensure_cluster_access()`
+`app/k8s.py`'s `ensure_kubeconfig()` now calls `ensure_cluster_access()`
 first, which self-grants this instance's IAM role a read-only access entry
 (`AmazonEKSViewPolicy`) on whatever cluster the incident names, the first
 time it's needed. It's idempotent (safe to call every time - a benign
@@ -92,6 +92,6 @@ kubectl --kubeconfig /tmp/test-kubeconfig get pods -n <SOME_NAMESPACE>
 ```
 
 If this returns pods without error, the agent's `ensure_kubeconfig`/`kubectl`
-helpers (`src/k8s/eks.py`) will work identically at runtime - including
+helpers (`app/k8s.py`) will work identically at runtime - including
 against any cluster you haven't tested yet, since access is granted
 on-demand.

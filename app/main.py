@@ -5,8 +5,8 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from slack_bolt.adapter.socket_mode import SocketModeHandler
 
-from src import config
-from src.slack.listener import create_slack_app
+from app import config
+from app.listener import create_slack_app
 
 logging.basicConfig(
     level=logging.INFO,

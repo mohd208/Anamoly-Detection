@@ -1,10 +1,26 @@
 import re
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Optional
 
-from src.claude.prompts import extraction_prompt
-from src.claude.runner import run_claude_json
-from src.incident.types import Incident
+from app.claude import extraction_prompt, run_claude_json
+
+AlertType = str  # "CrashLoopBackOff" | "OOMKilled" | "ImagePullBackOff" | "ErrImagePull" | "ProbeFailure" | "Unknown"
+
+
+@dataclass
+class Incident:
+    slack_message_ts: str
+    slack_channel: str
+    cluster: str
+    namespace: str
+    workload: str  # deployment/pod name, best-effort
+    alert_type: AlertType
+    title: str
+    raw_text: str
+    detected_at: str
+    monitor_url: Optional[str] = None
+
 
 # Datadog's Slack integration renders monitor tags as space-separated
 # `key:value` tokens in the message text (e.g. `cluster_name:prod-eks

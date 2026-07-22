@@ -2,10 +2,9 @@ import logging
 
 from slack_bolt import App
 
-from src import config
-from src.incident.parser import parse_incident
-from src.orchestrator import handle_incident
-from src.slack import formatter as fmt
+from app import config
+from app.agent import handle_incident, unresolved_incident_message
+from app.parser import parse_incident
 
 logger = logging.getLogger("anomaly-agent.slack")
 
@@ -42,7 +41,7 @@ def create_slack_app() -> App:
 
         if not incident:
             logger.warning("Could not parse an incident (cluster/namespace/workload) from this message")
-            say(text=fmt.unresolved_incident_message(), thread_ts=message["ts"])
+            say(text=unresolved_incident_message(), thread_ts=message["ts"])
             return
 
         logger.info(

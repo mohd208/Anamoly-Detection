@@ -2,7 +2,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from src.k8s.eks import _self_role_arn, ensure_cluster_access
+from app.k8s import _self_role_arn, ensure_cluster_access
 
 
 def _completed(returncode=0, stdout="", stderr=""):
@@ -26,13 +26,13 @@ def test_self_role_arn_passes_through_non_assumed_role_arns():
 
 
 def test_ensure_cluster_access_succeeds_when_grant_is_new():
-    with patch("src.k8s.eks._self_role_arn", return_value="arn:aws:iam::123:role/agent"), \
+    with patch("app.k8s._self_role_arn", return_value="arn:aws:iam::123:role/agent"), \
          patch("subprocess.run", side_effect=[_completed(returncode=0), _completed(returncode=0)]):
         ensure_cluster_access("my-cluster", "us-west-2")  # should not raise
 
 
 def test_ensure_cluster_access_treats_already_exists_as_success():
-    with patch("src.k8s.eks._self_role_arn", return_value="arn:aws:iam::123:role/agent"), \
+    with patch("app.k8s._self_role_arn", return_value="arn:aws:iam::123:role/agent"), \
          patch(
              "subprocess.run",
              side_effect=[
@@ -44,14 +44,14 @@ def test_ensure_cluster_access_treats_already_exists_as_success():
 
 
 def test_ensure_cluster_access_raises_on_genuine_create_failure():
-    with patch("src.k8s.eks._self_role_arn", return_value="arn:aws:iam::123:role/agent"), \
+    with patch("app.k8s._self_role_arn", return_value="arn:aws:iam::123:role/agent"), \
          patch("subprocess.run", return_value=_completed(returncode=254, stderr="AccessDeniedException: nope")):
         with pytest.raises(RuntimeError, match="Failed to create EKS access entry"):
             ensure_cluster_access("my-cluster", "us-west-2")
 
 
 def test_ensure_cluster_access_raises_on_associate_failure():
-    with patch("src.k8s.eks._self_role_arn", return_value="arn:aws:iam::123:role/agent"), \
+    with patch("app.k8s._self_role_arn", return_value="arn:aws:iam::123:role/agent"), \
          patch(
              "subprocess.run",
              side_effect=[_completed(returncode=0), _completed(returncode=254, stderr="nope")],
