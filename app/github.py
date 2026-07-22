@@ -57,9 +57,11 @@ def _git(cwd: Path, args: list[str]) -> str:
 
 def checkout_fresh_branch(repo: str, workdir: Path, branch_name: str, github_token: str) -> RepoCheckout:
     """Clones a shallow checkout of `owner/repo` into `workdir` and creates a
-    fresh branch off DEFAULT_BRANCH. The token is only ever passed via the
-    remote URL for this process's git invocations - never written to disk or
-    logged."""
+    fresh branch off DEFAULT_BRANCH. The token is passed via the remote URL
+    only for the clone itself, then immediately stripped from the stored
+    remote - `git clone <url-with-credentials>` persists that URL verbatim
+    into .git/config, and this directory is handed to Claude for file
+    read/edit access, so leaving the token there would be a plaintext leak."""
     repo_dir = workdir / repo.replace("/", "__") / branch_name
     shutil.rmtree(repo_dir, ignore_errors=True)
     repo_dir.parent.mkdir(parents=True, exist_ok=True)
@@ -75,6 +77,7 @@ def checkout_fresh_branch(repo: str, workdir: Path, branch_name: str, github_tok
     _git(repo_dir, ["checkout", "-b", branch_name])
     _git(repo_dir, ["config", "user.name", "anomaly-agent"])
     _git(repo_dir, ["config", "user.email", "anomaly-agent@users.noreply.github.com"])
+    _git(repo_dir, ["remote", "set-url", "origin", f"https://github.com/{repo}.git"])
 
     return RepoCheckout(dir=repo_dir, branch=branch_name)
 
@@ -98,10 +101,14 @@ def discard_file(repo_dir: Path, rel_path: str) -> None:
         (repo_dir / rel_path).unlink(missing_ok=True)
 
 
-def commit_and_push(repo_dir: Path, branch: str, message: str) -> None:
+def commit_and_push(repo_dir: Path, branch: str, message: str, repo: str, github_token: str) -> None:
     _git(repo_dir, ["add", "-A"])
     _git(repo_dir, ["commit", "-m", message])
-    _git(repo_dir, ["push", "-u", "origin", branch])
+    # Push via an explicit authenticated URL rather than the (now
+    # credential-free) "origin" remote, so the token is never written to
+    # .git/config - only present in this process's argv for the push itself.
+    authed_url = f"https://x-access-token:{github_token}@github.com/{repo}.git"
+    _git(repo_dir, ["push", authed_url, f"HEAD:refs/heads/{branch}"])
 
 
 # --- path allow-list enforcement ---

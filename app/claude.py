@@ -1,11 +1,14 @@
 import json
 import logging
+import re
 import subprocess
 from typing import Any, Optional
 
 from app import config
 
 logger = logging.getLogger("anomaly-agent.claude")
+
+_JSON_FENCE_RE = re.compile(r"```(?:json)?\s*(\{.*\})\s*```", re.DOTALL)
 
 # NOTE: exact flag names below (`-p`, `--output-format`, `--permission-mode`,
 # `--add-dir`) are current as of this writing but should be re-verified with
@@ -41,12 +44,40 @@ def run_claude(
     return result.stdout
 
 
+def _extract_json_object(text: str) -> Optional[dict[str, Any]]:
+    """Claude is asked to respond with pure JSON, but after several tool-use
+    turns it often still wraps the answer in a sentence or two of narration
+    and/or a ```json ... ``` fence. Try progressively looser strategies
+    instead of giving up on the first mismatch - the model already did the
+    real work, this just has to find it in the text."""
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        pass
+
+    fence_match = _JSON_FENCE_RE.search(text)
+    if fence_match:
+        try:
+            return json.loads(fence_match.group(1))
+        except json.JSONDecodeError:
+            pass
+
+    start, end = text.find("{"), text.rfind("}")
+    if start != -1 and end > start:
+        try:
+            return json.loads(text[start : end + 1])
+        except json.JSONDecodeError:
+            pass
+
+    return None
+
+
 def run_claude_json(prompt: str, **kwargs) -> Optional[dict[str, Any]]:
     """Runs a prompt and parses the CLI's JSON envelope, returning the inner
-    `result` field parsed as JSON. Returns None if anything about the shape
-    doesn't match, so callers can fall back gracefully instead of crashing
+    `result` field parsed as JSON. Returns None if nothing about the shape
+    can be salvaged, so callers can fall back gracefully instead of crashing
     the whole incident pipeline on a malformed response - but always logs
-    the actual reason first, so a bad CLI flag or non-JSON response is
+    the actual reason first, so a bad CLI flag or unparseable response is
     diagnosable instead of a silent None."""
     try:
         stdout = run_claude(prompt, **kwargs)
@@ -59,12 +90,17 @@ def run_claude_json(prompt: str, **kwargs) -> Optional[dict[str, Any]]:
 
     try:
         envelope = json.loads(stdout)
-        result = envelope.get("result")
-        result_text = result if isinstance(result, str) else json.dumps(result)
-        return json.loads(result_text)
-    except Exception:
-        logger.error("Could not parse claude CLI output as JSON. Raw stdout:\n%s", stdout)
+    except json.JSONDecodeError:
+        logger.error("claude CLI stdout was not valid JSON. Raw stdout:\n%s", stdout)
         return None
+
+    result = envelope.get("result")
+    result_text = result if isinstance(result, str) else json.dumps(result)
+
+    parsed = _extract_json_object(result_text)
+    if parsed is None:
+        logger.error("Could not find a JSON object in claude's result text:\n%s", result_text)
+    return parsed
 
 
 def extraction_prompt(raw_slack_text: str) -> str:
@@ -126,7 +162,9 @@ TASK
    actionable suggestion (including a code snippet/diff if useful) for a human
    engineer to apply.
 
-Respond with ONLY a JSON object, no prose, matching exactly this shape:
+Your FINAL message must be ONLY a JSON object matching exactly this shape - no
+narration before or after it, no markdown code fence around it, just the raw
+object starting with {{ and ending with }}:
 {{
   "classification": "devops_fix" | "code_suggestion_only",
   "root_cause": string,

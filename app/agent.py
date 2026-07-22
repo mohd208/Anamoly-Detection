@@ -157,7 +157,11 @@ def handle_incident(incident: Incident, reply: Callable[[str], None]) -> None:
             return
 
         commit_and_push(
-            checkout.dir, checkout.branch, f"fix: {incident.alert_type} in {incident.namespace}/{incident.workload}"
+            checkout.dir,
+            checkout.branch,
+            f"fix: {incident.alert_type} in {incident.namespace}/{incident.workload}",
+            mapping.repo,
+            config.GITHUB_TOKEN,
         )
 
         pr_url = open_pull_request(
