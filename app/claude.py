@@ -1,8 +1,11 @@
 import json
+import logging
 import subprocess
 from typing import Any, Optional
 
 from app import config
+
+logger = logging.getLogger("anomaly-agent.claude")
 
 # NOTE: exact flag names below (`-p`, `--output-format`, `--permission-mode`,
 # `--add-dir`) are current as of this writing but should be re-verified with
@@ -29,8 +32,12 @@ def run_claude(
         timeout=timeout_seconds,
         capture_output=True,
         text=True,
-        check=True,
     )
+    if result.returncode != 0:
+        raise RuntimeError(
+            f"claude CLI exited {result.returncode}. stderr: {result.stderr.strip() or '(empty)'} "
+            f"stdout: {result.stdout.strip() or '(empty)'}"
+        )
     return result.stdout
 
 
@@ -38,14 +45,25 @@ def run_claude_json(prompt: str, **kwargs) -> Optional[dict[str, Any]]:
     """Runs a prompt and parses the CLI's JSON envelope, returning the inner
     `result` field parsed as JSON. Returns None if anything about the shape
     doesn't match, so callers can fall back gracefully instead of crashing
-    the whole incident pipeline on a malformed response."""
+    the whole incident pipeline on a malformed response - but always logs
+    the actual reason first, so a bad CLI flag or non-JSON response is
+    diagnosable instead of a silent None."""
     try:
         stdout = run_claude(prompt, **kwargs)
+    except subprocess.TimeoutExpired:
+        logger.exception("claude CLI timed out")
+        return None
+    except Exception:
+        logger.exception("claude CLI invocation failed")
+        return None
+
+    try:
         envelope = json.loads(stdout)
         result = envelope.get("result")
         result_text = result if isinstance(result, str) else json.dumps(result)
         return json.loads(result_text)
     except Exception:
+        logger.error("Could not parse claude CLI output as JSON. Raw stdout:\n%s", stdout)
         return None
 
 
